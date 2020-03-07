@@ -140,16 +140,12 @@ class NativeTemplateGenerator extends Generator {
     final scanner = StringScanner(template);
 
     final textRegExp = RegExp(r"((?!<%).)+", dotAll: true);
-    final expressionRegExp = RegExp(r"<%=(((?!%>).)+)%>", dotAll: true);
     final blockRegExp = RegExp(r"<%(((?!%>).)+)%>", dotAll: true);
 
     while (!scanner.isDone) {
       if (scanner.scan(textRegExp)) {
         final text = scanner.lastMatch.group(0);
         _writeText(result, text);
-      } else if (scanner.scan(expressionRegExp)) {
-        final expression = scanner.lastMatch.group(1);
-        _writeExpression(result, expression);
       } else if (scanner.scan(blockRegExp)) {
         final code = scanner.lastMatch.group(1);
         _writeCode(result, code);
@@ -179,7 +175,15 @@ class NativeTemplateGenerator extends Generator {
   }
 
   void _writeText(StringBuffer result, String text) {
-    result.write("result.write(\"${text.replaceAll("\n", "\\n").replaceAll("\"", "\\\"")}\");");
+    final nativeExpressionRegExp = RegExp(r"\$\{(((?!\}).)+)\}", dotAll: true);
+    final escaped = text.splitMapJoin(
+      nativeExpressionRegExp,
+      // native expression goes as is
+      onMatch: (match) => match.group(0),
+      // rest of the text should be escaped
+      onNonMatch: (simpleText) => simpleText.replaceAll("\n", "\\n").replaceAll("\"", "\\\""),
+    );
+    result.write("result.write(\"${escaped}\");");
   }
 
   void _writeExpression(StringBuffer result, String expression) {
