@@ -1,0 +1,22 @@
+name: native_template_generator
+description: A starting point for Dart libraries or applications.
+# version: 1.0.0
+# homepage: https://www.example.com
+
+environment:
+  sdk: '>=2.7.0 <3.0.0'
+
+dependencies:
+  build: ^1.0.0
+  source_gen: ^0.9.1
+  analyzer:  '>=0.35.0 < 0.40.0'
+  built_value: 7.0.0
+  built_collection: 4.3.0
+  string_scanner: 1.0.5
+  native_template_support:
+    path: ../native_template_support
+
+dev_dependencies:
+  pedantic: ^1.8.0
+  test: ^1.6.0
+  build_runner: ^1.4.0

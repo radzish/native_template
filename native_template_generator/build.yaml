@@ -1,0 +1,14 @@
+targets:
+  $default:
+    builders:
+      native_template_generator|native_template_generator:
+        enabled: true
+
+builders:
+  native_template_generator:
+    import: "package:native_template_generator/builder.dart"
+    builder_factories: ["nativeTemplateGenerator"]
+    build_extensions: {".dart": [".nt.g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
