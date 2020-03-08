@@ -1,10 +1,12 @@
 <html>
 <body>
-<p>${ title }></p>
+<p>${ title }</p>
 </body>
+${ renderHeader(title) }
 <ul>
     <% for(String item in items) { %>
     <li>${ item }</li>
     <% } %>
 </ul>
+${ renderFooter(title) }
 </html>

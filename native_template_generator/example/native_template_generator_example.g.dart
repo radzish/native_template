@@ -10,11 +10,26 @@ mixin _$TemplateRenderer on _TemplateRenderer {
   @override
   String renderTemplate(String title, List<String> items) {
     final result = StringBuffer();
-    result.write("<html>\n<body>\n<p>${title}></p>\n</body>\n<ul>\n    ");
+    result.write(
+        "<html>\n<body>\n<p>${title}</p>\n</body>\n${renderHeader(title)}\n<ul>\n    ");
     for (String item in items) {
       result.write("\n    <li>${item}</li>\n    ");
     }
-    result.write("\n</ul>\n</html>");
+    result.write("\n</ul>\n${renderFooter(title)}\n</html>");
+    return result.toString();
+  }
+
+  @override
+  String renderHeader(String title) {
+    final result = StringBuffer();
+    result.write("<p>this is header with ${title}</p>");
+    return result.toString();
+  }
+
+  @override
+  String renderFooter(String title) {
+    final result = StringBuffer();
+    result.write("<p>this is footer with ${title}</p>");
     return result.toString();
   }
 }

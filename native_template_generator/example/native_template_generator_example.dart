@@ -7,4 +7,15 @@ class TemplateRenderer = _TemplateRenderer with _$TemplateRenderer;
 abstract class _TemplateRenderer {
   @Template("example/template.html")
   String renderTemplate(String title, List<String> items);
+
+  @Template("example/header.html")
+  String renderHeader(String title);
+
+  @Template("example/footer.html")
+  String renderFooter(String title);
+}
+
+void main() {
+  final renderer = TemplateRenderer();
+  print(renderer.renderTemplate("super title", ["item0", "item1"]));
 }
