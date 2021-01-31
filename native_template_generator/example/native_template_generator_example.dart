@@ -6,16 +6,24 @@ class TemplateRenderer = _TemplateRenderer with _$TemplateRenderer;
 
 abstract class _TemplateRenderer {
   @Template("example/template.html")
-  String renderTemplate(String title, List<String> items);
+  Future<String> renderTemplate(String title, List<String> items);
 
   @Template("example/header.html")
   String renderHeader(String title);
 
   @Template("example/footer.html")
   String renderFooter(String title);
+
+  @Template("example/async.html")
+  Future<String> renderAsync();
+
+  Future<String> _asyncCall() async {
+    await Future.delayed(Duration(milliseconds: 1));
+    return "test-async-value";
+  }
 }
 
-void main() {
+Future<void> main() async {
   final renderer = TemplateRenderer();
-  print(renderer.renderTemplate("super title", ["item0", "item1"]));
+  print(await renderer.renderTemplate("super title", ["item0", "item1"]));
 }

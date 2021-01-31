@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:native_template_support/native_template_support.dart';
@@ -12,6 +13,7 @@ import 'package:string_scanner/string_scanner.dart';
 
 final _templateChecker = TypeChecker.fromRuntime(Template);
 final _stringChecker = TypeChecker.fromRuntime(String);
+final _futureChecker = TypeChecker.fromRuntime(Future);
 final _privateClassNameRegexp = RegExp(r"_+([^_]+)");
 
 class NativeTemplateGenerator extends Generator {
@@ -33,7 +35,8 @@ class NativeTemplateGenerator extends Generator {
 
   String _generateRendererClass(ClassElement cls) {
     return _convertToMixin(code.Class(
-      (b) => b
+          (b) =>
+      b
         ..name = _generateMixinName(cls.displayName)
         ..types = _buildClassParameters(cls)
         ..extend = code.refer(_buildClassExtends(cls))
@@ -44,9 +47,8 @@ class NativeTemplateGenerator extends Generator {
   ListBuilder<code.Method> _buildPageMethods(ClassElement cls) {
     final pageMethods = cls.methods.where(_isPageMethod);
 
-    final invalidMethod = pageMethods.firstWhere(
-        (method) => !method.isAbstract || method.isAsynchronous || !_stringChecker.isExactlyType(method.returnType),
-        orElse: () => null);
+    final invalidMethod = pageMethods
+        .firstWhere((method) => !method.isAbstract || !_isSuitableReturnType(method.returnType), orElse: () => null);
 
     if (invalidMethod != null) {
       throw "template render method must be synchronous, abstract and return String";
@@ -54,17 +56,45 @@ class NativeTemplateGenerator extends Generator {
 
     return ListBuilder(
       pageMethods.map(
-        (method) => code.Method(
-          (b) => b
-            ..name = method.name
-            ..requiredParameters = _buildMethodRequiredParams(method)
-            ..optionalParameters = _buildMethodOptionalParams(method)
-            ..returns = code.refer("String")
-            ..annotations = ListBuilder([code.refer("override").expression])
-            ..body = _buildMethodBody(method),
-        ),
+            (method) =>
+            code.Method(
+                  (b) =>
+              b
+                ..name = method.name
+                ..requiredParameters = _buildMethodRequiredParams(method)
+                ..optionalParameters = _buildMethodOptionalParams(method)
+                ..returns = _isAsync(method) ? code.refer("Future<String>") : code.refer("String")
+                ..annotations = ListBuilder([code
+                    .refer("override")
+                    .expression
+                ])
+                ..modifier = _isAsync(method) ? code.MethodModifier.async : null
+                ..body = _buildMethodBody(method),
+            ),
       ),
     );
+  }
+
+  bool _isAsync(MethodElement method) {
+    // abstract methods do not have async modifier. so we need to check return type if it is Future
+    return _futureChecker.isExactlyType(method.returnType);
+  }
+
+  bool _isSuitableReturnType(DartType type) {
+    if (_stringChecker.isExactlyType(type)) {
+      return true;
+    }
+
+    if (_futureChecker.isExactlyType(type)) {
+      final futureGenerics = (type as InterfaceType).typeArguments;
+      if (futureGenerics.isNotEmpty) {
+        if (_stringChecker.isExactlyType(futureGenerics.first)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   String _convertToMixin(String classCode) {
@@ -117,7 +147,8 @@ class NativeTemplateGenerator extends Generator {
   }
 
   code.Parameter _buildMethodParam(ParameterElement param) {
-    return code.Parameter((b) => b
+    return code.Parameter((b) =>
+    b
       ..name = param.name
       ..type = code.refer(param.type.toString())
       ..named = param.isNamed);
