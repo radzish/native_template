@@ -150,7 +150,7 @@ class NativeTemplateGenerator extends Generator {
     return code.Parameter((b) =>
     b
       ..name = param.name
-      ..type = code.refer(param.type.toString())
+      ..type = code.refer(param.type.getDisplayString(withNullability: false))
       ..named = param.isNamed);
   }
 
