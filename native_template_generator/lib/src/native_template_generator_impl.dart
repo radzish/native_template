@@ -6,6 +6,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:built_collection/built_collection.dart';
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:native_template_support/native_template_support.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:code_builder/code_builder.dart' as code;
@@ -18,14 +19,14 @@ final _privateClassNameRegexp = RegExp(r"_+([^_]+)");
 
 class NativeTemplateGenerator extends Generator {
   @override
-  FutureOr<String> generate(LibraryReader library, BuildStep buildStep) async {
+  FutureOr<String?> generate(LibraryReader library, BuildStep buildStep) async {
     final rendererClasses = library.classes.where(_hasPageMethod);
 
     if (rendererClasses.isEmpty) {
       return null;
     }
 
-    final nonPrivateRenderer = rendererClasses.firstWhere((renderer) => !renderer.isPrivate, orElse: () => null);
+    final nonPrivateRenderer = rendererClasses.firstWhereOrNull((renderer) => !renderer.isPrivate);
     if (nonPrivateRenderer != null) {
       throw "class having template methods must be private: $nonPrivateRenderer";
     }
@@ -35,8 +36,7 @@ class NativeTemplateGenerator extends Generator {
 
   String _generateRendererClass(ClassElement cls) {
     return _convertToMixin(code.Class(
-          (b) =>
-      b
+      (b) => b
         ..name = _generateMixinName(cls.displayName)
         ..types = _buildClassParameters(cls)
         ..extend = code.refer(_buildClassExtends(cls))
@@ -47,30 +47,25 @@ class NativeTemplateGenerator extends Generator {
   ListBuilder<code.Method> _buildPageMethods(ClassElement cls) {
     final pageMethods = cls.methods.where(_isPageMethod);
 
-    final invalidMethod = pageMethods
-        .firstWhere((method) => !method.isAbstract || !_isSuitableReturnType(method.returnType), orElse: () => null);
+    final invalidMethodExist =
+        pageMethods.any((method) => !method.isAbstract || !_isSuitableReturnType(method.returnType));
 
-    if (invalidMethod != null) {
+    if (invalidMethodExist) {
       throw "template render method must be synchronous, abstract and return String";
     }
 
     return ListBuilder(
       pageMethods.map(
-            (method) =>
-            code.Method(
-                  (b) =>
-              b
-                ..name = method.name
-                ..requiredParameters = _buildMethodRequiredParams(method)
-                ..optionalParameters = _buildMethodOptionalParams(method)
-                ..returns = _isAsync(method) ? code.refer("Future<String>") : code.refer("String")
-                ..annotations = ListBuilder([code
-                    .refer("override")
-                    .expression
-                ])
-                ..modifier = _isAsync(method) ? code.MethodModifier.async : null
-                ..body = _buildMethodBody(method),
-            ),
+        (method) => code.Method(
+          (b) => b
+            ..name = method.name
+            ..requiredParameters = _buildMethodRequiredParams(method)
+            ..optionalParameters = _buildMethodOptionalParams(method)
+            ..returns = _isAsync(method) ? code.refer("Future<String>") : code.refer("String")
+            ..annotations = ListBuilder([code.refer("override").expression])
+            ..modifier = _isAsync(method) ? code.MethodModifier.async : null
+            ..body = _buildMethodBody(method),
+        ),
       ),
     );
   }
@@ -112,7 +107,7 @@ class NativeTemplateGenerator extends Generator {
   }
 
   String _generateMixinName(String name) {
-    return "_\$${_privateClassNameRegexp.firstMatch(name).group(1)}";
+    return "_\$${_privateClassNameRegexp.firstMatch(name)!.group(1)}";
   }
 
   ListBuilder<code.Reference> _buildClassParameters(ClassElement cls) {
@@ -147,16 +142,15 @@ class NativeTemplateGenerator extends Generator {
   }
 
   code.Parameter _buildMethodParam(ParameterElement param) {
-    return code.Parameter((b) =>
-    b
+    return code.Parameter((b) => b
       ..name = param.name
-      ..type = code.refer(param.type.getDisplayString(withNullability: false))
+      ..type = code.refer(param.type.getDisplayString(withNullability: true))
       ..named = param.isNamed);
   }
 
   code.Code _buildMethodBody(MethodElement method) {
-    final templateAnnotation = _templateChecker.firstAnnotationOf(method);
-    final templatePath = templateAnnotation.getField("path").toStringValue();
+    final templateAnnotation = _templateChecker.firstAnnotationOf(method)!;
+    final templatePath = templateAnnotation.getField("path")!.toStringValue()!;
 
     final template = File.fromUri(Uri.parse(templatePath)).readAsStringSync();
 
@@ -175,10 +169,10 @@ class NativeTemplateGenerator extends Generator {
 
     while (!scanner.isDone) {
       if (scanner.scan(textRegExp)) {
-        final text = scanner.lastMatch.group(0);
+        final text = scanner.lastMatch!.group(0)!;
         _writeText(result, text);
       } else if (scanner.scan(blockRegExp)) {
-        final code = scanner.lastMatch.group(1);
+        final code = scanner.lastMatch!.group(1);
         _writeCode(result, code);
       } else {
         int errorLineNumber = _calculateErrorLineNumber(template, scanner);
@@ -210,18 +204,14 @@ class NativeTemplateGenerator extends Generator {
     final escaped = text.splitMapJoin(
       nativeExpressionRegExp,
       // native expression goes as is
-      onMatch: (match) => match.group(0),
+      onMatch: (match) => match.group(0)!,
       // rest of the text should be escaped
       onNonMatch: (simpleText) => simpleText.replaceAll("\n", "\\n").replaceAll("\"", "\\\""),
     );
     result.write("result.write(\"${escaped}\");");
   }
 
-  void _writeExpression(StringBuffer result, String expression) {
-    result.write("result.write($expression);");
-  }
-
-  void _writeCode(StringBuffer result, String code) {
+  void _writeCode(StringBuffer result, String? code) {
     result.write(code);
   }
 }
