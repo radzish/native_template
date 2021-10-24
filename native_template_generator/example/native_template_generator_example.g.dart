@@ -8,7 +8,8 @@ part of 'native_template_generator_example.dart';
 
 mixin _$TemplateRenderer on _TemplateRenderer {
   @override
-  Future<String> renderTemplate(String title, List<String> items) async {
+  Future<String> renderTemplate(
+      String title, List<String> items, String? nullableString) async {
     final result = StringBuffer();
     result.write(
         "<html>\n<body>\n<p>${title}</p>\n</body>\n${renderHeader(title)}\n<ul>\n    ");
